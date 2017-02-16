@@ -182,7 +182,7 @@ type Ret() =
 
 [<EntryPoint>]
 let main argv = 
-    let one = new Inc(Number.Natural 1)
+    let one = new Inc(Number.Natural 1) 
     one.Evaluate()
     printfn "%A" one.LeftOperand
     printfn "%A" argv
