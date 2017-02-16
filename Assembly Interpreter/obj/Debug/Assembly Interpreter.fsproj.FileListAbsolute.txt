@@ -1,0 +1,8 @@
+D:\Projects\Visual Studio 2013\Projects\Assembly Interpreter\Assembly Interpreter\bin\Debug\Assembly_Interpreter.exe.config
+D:\Projects\Visual Studio 2013\Projects\Assembly Interpreter\Assembly Interpreter\bin\Debug\Assembly_Interpreter.XML
+D:\Projects\Visual Studio 2013\Projects\Assembly Interpreter\Assembly Interpreter\bin\Debug\Assembly_Interpreter.exe
+D:\Projects\Visual Studio 2013\Projects\Assembly Interpreter\Assembly Interpreter\bin\Debug\Assembly_Interpreter.pdb
+D:\Projects\Visual Studio 2013\Projects\Assembly Interpreter\Assembly Interpreter\bin\Debug\FSharp.Core.dll
+D:\Projects\Visual Studio 2013\Projects\Assembly Interpreter\Assembly Interpreter\bin\Debug\FSharp.Core.xml
+D:\Projects\Visual Studio 2013\Projects\Assembly Interpreter\Assembly Interpreter\obj\Debug\Assembly_Interpreter.exe
+D:\Projects\Visual Studio 2013\Projects\Assembly Interpreter\Assembly Interpreter\obj\Debug\Assembly_Interpreter.pdb
