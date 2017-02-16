@@ -82,13 +82,29 @@ type DoubleInstruction(name, m, n) =
     inherit SingleInstruction(name, m)
     member this.RightOperand:Operand = n
 
+let calcSingle(left:Number, f1:int -> int, f2:float -> float) =
+    match left with 
+        |Natural(left') -> IntToOp (f1 left')
+        |Real(left'') -> FloatToOp (f2 left'')
+
+let inc(left) = calcSingle(left, (fun n' -> n'+1), (fun r' -> r'+1.0) )
+let dec(left) = calcSingle(left, (fun n' -> n'-1), (fun r' -> r'-1.0) )
+
+let calcDouble(left:Number, right:Number, f1:int -> int -> int, f2: float -> float -> float) = 
+    match left, right with
+        | Real (r'), Real(r'') -> FloatToOp (f2 r' r'')
+        | Natural (n'), Natural(n'') -> IntToOp (f1 n' n'')
+        | _ -> failwith "Invalid Operation"
+
+let add(left, right) = calcDouble(left, right, (fun n' n''-> (n' + n'')), (fun r' r'' -> (r' + r'')))
+let sub(left, right) = calcDouble(left, right, (fun n' n''-> (n' - n'')), (fun r' r'' -> (r' - r'')))
+let mul(left, right) = calcDouble(left, right, (fun n' n''-> (n' * n'')), (fun r' r'' -> (r' * r'')))
+let div(left, right) = calcDouble(left, right, (fun n' n''-> (n' / n'')), (fun r' r'' -> (r' / r'')))
+
+
 type CalcDouble(name, left:Number, right:Number, f1:int -> int -> int, f2: float -> float -> float) =
     inherit DoubleInstruction(name, NumToOp left, NumToOp right) with
-    override this.Evaluate() = 
-        match left, right with
-        | Real (r'), Real(r'') -> this.LeftOperand <- FloatToOp (f2 r' r'')
-        | Natural (n'), Natural(n'') -> this.LeftOperand <- IntToOp (f1 n' n'')
-        | _ -> failwith "Invalid Operation"
+    override this.Evaluate() = this.LeftOperand <- calcDouble(left, right, f1, f2)
 
 type Add(left, right) =
     inherit CalcDouble( "add", left, right, (fun n' n''-> (n' + n'')), (fun r' r'' -> (r' + r'')))
@@ -116,6 +132,12 @@ type Inc(left) =
 type Dec(left) = 
     inherit CalcSingle("inc", left, (fun n' -> n'-1), (fun r' -> r'-1.0) )
 
+let mov(left, right) =
+    match left, right with
+    | Register(l'), Register(r') | Register(l'), Variable(r') | Variable(l'), Register(r') -> l'.Value <- r'.Value
+    | Register(l'), Value(r') | Variable(l'), Value(r') -> l'.Value <- r'
+    | _ -> invalidOp "Invalid operation"
+
 //Valid commands
 //mov <reg>,<reg>
 //mov <reg>,<mem>
@@ -136,17 +158,36 @@ type Function(name, body) =
 
 let runFunction(a':Instruction[]) = Array.iter (fun (ins:Instruction) -> ins.Evaluate()) a'
 
+
 let flags = new Flags()
+let cmp(left:Operand,right:Operand) = 
+    let result = left.Cmp right
+    flags.ZF <- (result = 0)
+    flags.SF <- (result > 0)
+
 type Cmp(left,right) = 
     inherit DoubleInstruction("cmp", left, right) with
-        override this.Evaluate() = 
-            let result = left.Cmp right
-            flags.ZF <- (result = 0)
-            flags.SF <- (result > 0)
+        override this.Evaluate() = cmp(left,right)
 
 let mutable IP:Value = Value.Number(Number.Natural(0)) 
 let mutable SP:int8 = -1y
 let stack:List<Value> = new List<Value>(64)
+let push(left:Operand) = 
+    stack.Add (left.GetValue())
+    SP <- SP + 1y
+
+let pop(left:Operand) = 
+    stack.Add (left.GetValue())
+    SP <- SP + 1y
+
+let call(f:Function) = 
+    push(Operand.Value IP)
+    runFunction f.Body
+
+let jmp(f:Function) = runFunction f.Body
+
+let ret() = pop(Operand.Value IP)
+
 type Push(left) = 
     inherit SingleInstruction("push", left) with
     override this.Evaluate() = 
@@ -178,7 +219,6 @@ type Ret() =
     override this.Evaluate() = 
         let setbackIP = new Pop(Operand.Value IP)
         setbackIP.Evaluate()
-
 
 [<EntryPoint>]
 let main argv = 
