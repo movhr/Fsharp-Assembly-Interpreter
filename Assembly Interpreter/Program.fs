@@ -1,10 +1,9 @@
 ﻿open System
 open System.Collections.Generic
 
-// Learn more about F# at http://fsharp.org
-// See the 'F# Tutorial' project for more help.
-
-let failcast() = failwith "Argument cannot be compared to this object."
+//Types
+let failcmp() = failwith "Argument cannot be compared to this object."
+let failtype() = invalidOp "Types are not compatible"
 
 type Flag = bool
 
@@ -14,216 +13,214 @@ type Flags() =
     member this.ZF with get() = zf and set(value) = zf <- value //zero flag
     member this.SF with get() = sf and set(value) = sf <- value //sign flag
 
+type IType<'T> = 
+    abstract member Cmp:'T -> int
+
 type Number =
     |Natural of int
     |Real of float
-    member this.Cmp(obj:Number) =   
-        match this,obj with
-        |Natural(o),Natural(o') -> o.CompareTo o'
-        |Real(o),Real(o') -> o.CompareTo o'
-        |_ -> failcast()
+    interface IType<Number> with
+        override this.Cmp(obj:Number) =   
+            match this,obj with
+            |Natural(o),Natural(o') -> o.CompareTo o'
+            |Real(o),Real(o') -> o.CompareTo o'
+            |_ -> failcmp()
+    override this.ToString() = 
+        match this with
+        |Natural(t') -> t'.ToString()
+        |Real(t') -> t'.ToString()
+    static member (*) (a:Number,b:Number) : Number = 
+        match a,b with
+        | Natural a', Natural b' -> Natural (a' * b')
+        | Natural a', Real b' -> Real ( (float a') * b' )
+        | Real a', Natural b' -> Real ( a' * (float b') )
+        | Real a', Real b' -> Real ( a' * b' )    
+    static member (/) (a:Number,b:Number) : Number = 
+        match a,b with
+        | Natural a', Natural b' -> Natural (a' / b')
+        | Natural a', Real b' -> Real ( (float a') / b' )
+        | Real a', Natural b' -> Real ( a' / (float b') )
+        | Real a', Real b' -> Real ( a' / b' )
+    static member (+) (a:Number,b:Number) : Number = 
+        match a,b with
+        | Natural a', Natural b' -> Natural (a' + b')
+        | Natural a', Real b' -> Real ( (float a') + b' )
+        | Real a', Natural b' -> Real ( a' + (float b') )
+        | Real a', Real b' -> Real ( a' + b' )
+    static member (-) (a:Number,b:Number) : Number = 
+        match a,b with
+        | Natural a', Natural b' -> Natural (a' - b')
+        | Natural a', Real b' -> Real ( (float a') - b' )
+        | Real a', Natural b' -> Real ( a' - (float b') )
+        | Real a', Real b' -> Real ( a' - b' )
+
     
-type Value = 
+type ValType = 
     |Text of string
     |Number of Number
-    member this.Cmp(obj:Value) = 
-        match this,obj with
-        | Text(o), Text(o') -> o.CompareTo this
-        | Number(o), Number(o') -> o.Cmp o'
-        | _ -> failcast()
+    interface IType<ValType> with
+        override this.Cmp(obj:ValType) = 
+            match this,obj with
+            | Text(o), Text(o') -> o.CompareTo this
+            | Number(o), Number(o') -> (o :> IType<Number>).Cmp o'
+            | _ -> failcmp()
+    override this.ToString() = 
+        match this with
+        |Text(t') -> t'
+        |Number(t') -> t'.ToString()
+    static member (+) (a:ValType, b:ValType) : ValType = 
+        match a,b with
+        | Number(a'), Number(b') -> ValType.Number( a' + b' )
+        | Text(a'), Text(b') -> ValType.Text ( String.Concat(a', b') )
+        | _ -> failtype()    
+    static member (-) (a:ValType, b:ValType) : ValType = 
+        match a,b with
+        | Number(a'), Number(b') -> ValType.Number( a' - b' )
+        | _ -> failtype()
+    static member (*) (a:ValType, b:ValType) : ValType = 
+        match a,b with
+        | Number(a'), Number(b') -> ValType.Number( a' * b' )
+        | _ -> failtype()
+    static member (/) (a:ValType, b:ValType) : ValType = 
+        match a,b with
+        | Number(a'), Number(b') -> ValType.Number( a' / b' )
+        | _ -> failtype()
 
-type Register(name, initValue) = 
-    let mutable value:Value = initValue
-    member this.Name:string = name
+type Constant(value) = 
+    let mutable value:ValType = value
+    member this.Data
+        with get() = value
+        and set(newVal) = value <- newVal
+    static member FromInt(a':int) = ValType.Number(Number.Natural a')
+    static member FromFlt(a':float) = ValType.Number(Number.Real a')
+
+type Register(initValue) = 
+    let mutable value:ValType = initValue
     member this.Value
         with get() = value
         and set(newVal) = value <- newVal
-    member this.Cmp(obj:Register) = this.Value.Cmp obj.Value
+    //member this.Cmp(obj:Register) = (value.Data :> IType<ValType>).Cmp obj.Value.Data
 
-type Variable = Register
-
-type Operand = 
+type Variable(name, initValue) = 
+    inherit Register(initValue) with
+    member this.Name:string = name
+    
+type OpType = 
     | Variable of Variable
     | Register of Register
-    | Value of Value
-    member this.Cmp(obj:Operand) =
-        match this, obj with
-            | Register(o), Register(o') -> o.Cmp o'
-            | Value(o), Value(o') -> o.Cmp o'
-            | _ -> failcast()
-    member this.GetValue() = 
-        match this with
-        |Variable(t') | Register(t') -> t'.Value
-        |Value(t') -> t'
+    | Value of Constant
+    interface IType<OpType> with 
+        override this.Cmp(obj:OpType) =
+            match this, obj with
+                | Register(o), Register(o') -> (o.Value :> IType<ValType>).Cmp o'.Value
+                | Value(o), Value(o') -> (o.Data :> IType<ValType>).Cmp o'.Data
+                | _ -> failtype()
 
-let NumToOp(a':Number) = Operand.Value(Value.Number(a'))
-let IntToOp(a': int) = Operand.Value(Value.Number(Number.Natural(a')))
-let FloatToOp(a':float) = Operand.Value(Value.Number(Number.Real(a')))
-
-[<AbstractClassAttribute>]
-type Instruction(name) = 
-    member this.Name:string = name
-    abstract member Evaluate:unit -> unit
-
-[<AbstractClass>]
-type NakedInstruction(name) = 
-    inherit Instruction(name)
-    
-[<AbstractClass>]
-type SingleInstruction(name, m) = 
-    inherit Instruction(name)
-    let mutable leftOperand:Operand = m
-    member this.LeftOperand 
-        with get() = leftOperand
-        and set(value) = leftOperand <- value
-    
-[<AbstractClass>]
-type DoubleInstruction(name, m, n) =
-    inherit SingleInstruction(name, m)
-    member this.RightOperand:Operand = n
-
-let calcSingle(left:Number, f1:int -> int, f2:float -> float) =
-    match left with 
-        |Natural(left') -> IntToOp (f1 left')
-        |Real(left'') -> FloatToOp (f2 left'')
-
-let inc(left) = calcSingle(left, (fun n' -> n'+1), (fun r' -> r'+1.0) )
-let dec(left) = calcSingle(left, (fun n' -> n'-1), (fun r' -> r'-1.0) )
-
-let calcDouble(left:Number, right:Number, f1:int -> int -> int, f2: float -> float -> float) = 
-    match left, right with
-        | Real (r'), Real(r'') -> FloatToOp (f2 r' r'')
-        | Natural (n'), Natural(n'') -> IntToOp (f1 n' n'')
-        | _ -> failwith "Invalid Operation"
-
-let add(left, right) = calcDouble(left, right, (fun n' n''-> (n' + n'')), (fun r' r'' -> (r' + r'')))
-let sub(left, right) = calcDouble(left, right, (fun n' n''-> (n' - n'')), (fun r' r'' -> (r' - r'')))
-let mul(left, right) = calcDouble(left, right, (fun n' n''-> (n' * n'')), (fun r' r'' -> (r' * r'')))
-let div(left, right) = calcDouble(left, right, (fun n' n''-> (n' / n'')), (fun r' r'' -> (r' / r'')))
+type Operand(op) = 
+    let mutable value:OpType = op
+    member this.Value
+        with get() = 
+            match value with
+            | Variable(v') -> v'.Value
+            | Register(r') -> r'.Value
+            | Value(v') -> v'.Data
+        and set(newVal) = 
+            match value with
+            | Variable(v') -> v'.Value <- newVal
+            | Register(v') -> v'.Value <- newVal
+            | Value(v') -> v'.Data <- newVal
+    member this.Op with get() = value
+    member this.Cmp(obj:Operand) = (this.Value :> IType<ValType>).Cmp(obj.Value)
+    static member FromIntAsNum(a':int) = new Operand(OpType.Value(new Constant(ValType.Number(Number.Natural a'))))
+    static member FromFltAsNum(a':float) = new Operand(OpType.Value(new Constant(ValType.Number(Number.Real a'))))
 
 
-type CalcDouble(name, left:Number, right:Number, f1:int -> int -> int, f2: float -> float -> float) =
-    inherit DoubleInstruction(name, NumToOp left, NumToOp right) with
-    override this.Evaluate() = this.LeftOperand <- calcDouble(left, right, f1, f2)
+//Control flow
+let flags = new Flags()
+let mutable IP:Register = new Register ( -1 |> Number.Natural |> ValType.Number)
+let mutable SP:int8 = -1y
+let stack:List<ValType> = new List<ValType>(64)
 
-type Add(left, right) =
-    inherit CalcDouble( "add", left, right, (fun n' n''-> (n' + n'')), (fun r' r'' -> (r' + r'')))
-                                                                      
-type Sub(left, right) =                                               
-    inherit CalcDouble( "sub", left, right, (fun n' n''-> (n' - n'')), (fun r' r'' -> (r' - r'')))
-                                                                     
-type Mul(left, right) =                                               
-    inherit CalcDouble( "mul", left, right, (fun n' n''-> (n' * n'')), (fun r' r'' -> (r' * r'')))
-                                                                      
-type Div(left, right) =                                               
-    inherit CalcDouble( "div", left, right, (fun n' n''-> (n' / n'')), (fun r' r'' -> (r' / r'')))      
-
-type CalcSingle(name, left, f1:int -> int, f2:float -> float) = 
-    inherit SingleInstruction("inc", NumToOp left) with
-    override this.Evaluate() = 
-        match left with 
-        |Natural(left') -> this.LeftOperand <- IntToOp (f1 left')
-        |Real(left'') -> this.LeftOperand <- FloatToOp (f2 left'')
-        ()
-
-type Inc(left) = 
-    inherit CalcSingle("inc", left, (fun n' -> n'+1), (fun r' -> r'+1.0) )
-
-type Dec(left) = 
-    inherit CalcSingle("inc", left, (fun n' -> n'-1), (fun r' -> r'-1.0) )
-
-let mov(left, right) =
-    match left, right with
-    | Register(l'), Register(r') | Register(l'), Variable(r') | Variable(l'), Register(r') -> l'.Value <- r'.Value
-    | Register(l'), Value(r') | Variable(l'), Value(r') -> l'.Value <- r'
-    | _ -> invalidOp "Invalid operation"
-
-//Valid commands
+//Valid MOV commands
 //mov <reg>,<reg>
 //mov <reg>,<mem>
 //mov <mem>,<reg>
 //mov <reg>,<const>
 //mov <mem>,<const>
-type Mov(left, right) = 
-    inherit DoubleInstruction("mov", left, right) with
-    override this.Evaluate() = 
-        match this.LeftOperand, this.RightOperand with
-        | Register(l'), Register(r') | Register(l'), Variable(r') | Variable(l'), Register(r') -> l'.Value <- r'.Value
-        | Register(l'), Value(r') | Variable(l'), Value(r') -> l'.Value <- r'
-        | _ -> invalidOp "Invalid operation"
-     
-type Function(name, body) = 
-    member this.Name:string = name
-    member this.Body:Instruction array = body
 
-let runFunction(a':Instruction[]) = Array.iter (fun (ins:Instruction) -> ins.Evaluate()) a'
+let mov(left, right) =
+    match left, right with
+    | Register(l'), Register(r') -> l'.Value <- r'.Value
+    | Register(l'), Variable(r') -> l'.Value <- r'.Value
+    | Variable(l'), Register(r') -> l'.Value <- r'.Value
+    | Register(l'), Value(r') -> l'.Value <- r'.Data
+    | Variable(l'), Value(r') -> l'.Value <- r'.Data
+    | _ -> failtype()
 
-
-let flags = new Flags()
 let cmp(left:Operand,right:Operand) = 
     let result = left.Cmp right
     flags.ZF <- (result = 0)
     flags.SF <- (result > 0)
 
-type Cmp(left,right) = 
-    inherit DoubleInstruction("cmp", left, right) with
-        override this.Evaluate() = cmp(left,right)
-
-let mutable IP:Value = Value.Number(Number.Natural(0)) 
-let mutable SP:int8 = -1y
-let stack:List<Value> = new List<Value>(64)
 let push(left:Operand) = 
-    stack.Add (left.GetValue())
+    stack.Add left.Value
     SP <- SP + 1y
 
 let pop(left:Operand) = 
-    stack.Add (left.GetValue())
-    SP <- SP + 1y
+    left.Value <- stack.[int SP]
+    stack.RemoveAt (int SP)
+    SP <- SP - 1y
+    
+let jmp(loc) = 
+    IP.Value <- loc
 
-let call(f:Function) = 
-    push(Operand.Value IP)
-    runFunction f.Body
+let call(loc) = 
+    push(Operand(OpType.Register IP) )
+    jmp(loc)
 
-let jmp(f:Function) = runFunction f.Body
+let ret() = pop(Operand(OpType.Register IP) )
 
-let ret() = pop(Operand.Value IP)
+let nop() = ()
 
-type Push(left) = 
-    inherit SingleInstruction("push", left) with
-    override this.Evaluate() = 
-        stack.Add (this.LeftOperand.GetValue())
-        SP <- SP + 1y
+let cj(loc, c:bool) = if c then jmp(loc)
+let je(loc)  = cj(loc, flags.ZF)
+let jz(loc)  = cj(loc, flags.ZF)
+let jnz(loc) = cj(loc, not flags.ZF)
+let js(loc)  = cj(loc, flags.SF)
+let jns(loc)  = cj(loc, not flags.SF)
+let jne(loc) = cj(loc, not flags.ZF)
+let jg(loc)  = cj(loc, not flags.SF && not flags.ZF)
+let jge(loc) = cj(loc, not flags.SF || flags.ZF)
+//  jl(e) comes with Overflow flag, which not implemented yet
 
-type Pop(left) = 
-    inherit SingleInstruction("pop", left) with
-    override this.Evaluate() = 
-        let t = new Mov(left, Operand.Value stack.[int SP])
-        t.Evaluate()
-        SP <- SP - 1y
+let AddSub<'T>(l:Operand, r:Operand, f:Number->Number->ValType) =
+    let l',r' = match l.Value,r.Value with | Number(l''),Number(r'') -> (l'',r'') | _ -> invalidOp ""
+    match l.Op,r.Op with
+    | Register(l''), Register(_) -> l''.Value <- f l' r'
+    | Register(l''), Value(_)    -> l''.Value <- f l' r'
+    | Register(l''), Variable(_) -> l''.Value <- f l' r'
+    | Variable(l''), Register(_) -> l''.Value <- f l' r'
+    | Variable(l''), Value(_)    -> l''.Value <- f l' r'
+    | _ -> failtype()
 
-type Call(``function``) =
-    inherit Instruction("call") with
-    member this.Label:Function = ``function``
-    override this.Evaluate() = 
-        let saveIP = new Push(Operand.Value IP)
-        saveIP.Evaluate()
-        runFunction this.Label.Body
-
-type Jmp(``function``) =
-    inherit Instruction("jmp") with
-    member this.Label:Function = ``function``
-    override this.Evaluate() = runFunction this.Label.Body
-
-type Ret() =
-    inherit NakedInstruction("ret") with
-    override this.Evaluate() = 
-        let setbackIP = new Pop(Operand.Value IP)
-        setbackIP.Evaluate()
-
+let add(l,r) = AddSub(l, r, (fun a b -> Number(a+b) ) )
+let sub(l,r) =  AddSub(l, r, (fun a b -> Number(a-b) ) )
+let inc(l:Operand) = add (l, Operand.FromIntAsNum 1)
+let dec(l:Operand) = sub (l, Operand.FromIntAsNum 1)
+let mul(l:Register,r:Operand) =
+    if r.GetType() = typedefof<Constant> then failtype()
+    else l.Value <- l.Value * r.Value
+//let div2(l:Register,r:Operand) = //Custom division function. Original assembly uses EAX,EBX,EDX, which is too much of a hassle
+    
 [<EntryPoint>]
 let main argv = 
-    let one = new Inc(Number.Natural 1) 
-    one.Evaluate()
-    printfn "%A" one.LeftOperand
-    printfn "%A" argv
-    0 // return an integer exit code
+    let mutable regA = new Register(Constant.FromInt 0)
+    let mutable regB = new Register(Constant.FromInt 1)
+    let mutable var1 = new Variable("var1", Constant.FromInt 5)
+    let mutable var2 = new Variable("var2", Constant.FromInt 10)
+    
+    mul(regB, Operand(OpType.Variable var2)) //expects 1 * 10 = 10
+    printfn "%A" regB.Value
+        
+    printfn "%A" regB.Value
+    0

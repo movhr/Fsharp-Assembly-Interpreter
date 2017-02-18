@@ -1,0 +1,11 @@
+﻿section .reg
+EAX
+EBX
+
+section .data
+x 5
+y 10
+
+section .code
+_main:
+	
