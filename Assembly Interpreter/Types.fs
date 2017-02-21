@@ -96,24 +96,20 @@ module Types =
         static member FromInt(a':int) = ValType.Number(Number.Natural a')
         static member FromFlt(a':float) = ValType.Number(Number.Real a')
     
-    type Register(initValue) = 
+    type Variable(name, initValue) = 
         let mutable value:ValType = initValue
         member this.Value
             with get() = value
             and set(newVal) = value <- newVal
-    
-    type Variable(name, initValue) = 
-        inherit Register(initValue) with
         member this.Name:string = name
         
     type OpType = 
         | Variable of Variable
-        | Register of Register
         | Value of Constant
         interface IType<OpType> with 
             override this.Cmp(obj:OpType) =
                 match this, obj with
-                    | Register(o), Register(o') -> (o.Value :> IType<ValType>).Cmp o'.Value
+                    | Variable(o), Variable(o') -> (o.Value :> IType<ValType>).Cmp o'.Value
                     | Value(o), Value(o') -> (o.Data :> IType<ValType>).Cmp o'.Data
                     | _ -> failtype()
     
@@ -123,12 +119,10 @@ module Types =
             with get() = 
                 match value with
                 | Variable(v') -> v'.Value
-                | Register(r') -> r'.Value
                 | Value(v') -> v'.Data
             and set(newVal) = 
                 match value with
                 | Variable(v') -> v'.Value <- newVal
-                | Register(v') -> v'.Value <- newVal
                 | Value(v') -> v'.Data <- newVal
         member this.Op with get() = value
         member this.Cmp(obj:Operand) = (this.Value :> IType<ValType>).Cmp(obj.Value)

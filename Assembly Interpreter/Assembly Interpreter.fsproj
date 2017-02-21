@@ -25,6 +25,7 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DocumentationFile>bin\Debug\Assembly_Interpreter.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
+    <StartArguments>"D:\Projects\Visual Studio 2013\Projects\Assembly Interpreter\Assembly Interpreter\bin\Debug\testassembly.txt"</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -58,8 +59,8 @@
     <Compile Include="Types.fs" />
     <Compile Include="Functions.fs" />
     <Compile Include="Expressions.fs" />
-    <Compile Include="Compiler.fs" />
     <Compile Include="Parser.fs" />
+    <Compile Include="Interpreter.fs" />
     <Compile Include="Tests.fs" />
     <None Include="App.config" />
     <Content Include="testAssembly.txt" />

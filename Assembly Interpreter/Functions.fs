@@ -6,17 +6,14 @@ open Types
 module Functions = 
     //Control flow
     let flags = new Flags()
-    let mutable IP:Register = new Register ( -1 |> Number.Natural |> ValType.Number)
+    let mutable IP:Variable = new Variable ("IP", -1 |> Number.Natural |> ValType.Number)
     let mutable SP:int8 = -1y
     let stack:List<ValType> = new List<ValType>(64)
     
     
     let mov (left:Operand) (right:Operand) =
         match left.Op,right.Op with
-        | Register(l'), Register(r') -> l'.Value <- r'.Value
-        | Register(l'), Variable(r') -> l'.Value <- r'.Value
-        | Variable(l'), Register(r') -> l'.Value <- r'.Value
-        | Register(l'), Value(r') -> l'.Value <- r'.Data
+        | Variable(l'), Variable(r') -> l'.Value <- r'.Value
         | Variable(l'), Value(r') -> l'.Value <- r'.Data
         | _ -> failtype()
     
@@ -38,10 +35,10 @@ module Functions =
         IP.Value <- loc.Value
     
     let call(loc) = 
-        push(Operand(OpType.Register IP) )
+        push(Operand(OpType.Variable IP) )
         jmp(loc)
     
-    let ret() = pop(Operand(OpType.Register IP) )
+    let ret() = pop(Operand(OpType.Variable IP) )
     
     let nop() = ()
     
@@ -61,7 +58,6 @@ module Functions =
     let AddSub<'T>(l:Operand) (r:ValType) (f:Number->Number->ValType) =
         let l',r' = match l.Value,r with | Number(l''),Number(r'') -> (l'',r'') | _ -> invalidOp ""
         match l.Op with
-        | Register(l'') -> l''.Value <- f l' r'
         | Variable(l'') -> l''.Value <- f l' r'
         | _ -> failtype()
     
