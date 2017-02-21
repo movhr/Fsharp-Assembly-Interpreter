@@ -63,7 +63,7 @@
     <Compile Include="Interpreter.fs" />
     <Compile Include="Tests.fs" />
     <None Include="App.config" />
-    <Content Include="testAssembly.txt" />
+    <Content Include="testassembly.txt" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
