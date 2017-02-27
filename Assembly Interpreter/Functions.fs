@@ -10,7 +10,6 @@ module Functions =
     let mutable SP:int8 = -1y
     let stack:List<ValType> = new List<ValType>(64)
     
-    
     let mov (left:Operand) (right:Operand) =
         match left.Op,right.Op with
         | Variable(l'), Variable(r') -> l'.Value <- r'.Value

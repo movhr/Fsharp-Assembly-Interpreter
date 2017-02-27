@@ -10,13 +10,30 @@ module Expressions =
         interface IExpr with
             override this.Evaluate() = f()
 
-    type SingleExpr(a, f:Types.Operand->unit) =
+    type SingleExpr(a, f:Operand->unit) =
         interface IExpr with
             override this.Evaluate() = f a
-        
+                
     type DoubleExpr(a, b, f:Operand->Operand->unit) = 
         interface IExpr with
             override this.Evaluate() = f a b
+
+    type InterruptTable() = 
+        static let mutable reservedOp = Operand.FromIntAsNum 0
+        static member Print() = //80d = ascii P
+            pop(reservedOp)
+            printf "%A" reservedOp.Value
+
+        static member Exit() =  //69d = ascii E
+            pop(reservedOp)
+            printf "Exit code: %A" reservedOp.Value
+            exit (reservedOp.Cmp(Operand.FromIntAsNum 0))
+
+        static member Call(num:Operand) = 
+            if num.Cmp(Operand.FromIntAsNum(80)) = 0 then InterruptTable.Print()
+            elif num.Cmp(Operand.FromIntAsNum(69)) = 0 then InterruptTable.Exit()
+            else 
+                invalidArg "num" "Invalid interrupt code"
 
     //Naked expressions
     let Ret() = new NakedExpr(ret)
@@ -29,6 +46,7 @@ module Expressions =
     let Call l = new SingleExpr(l, call)
     let Push l = new SingleExpr(l, push)
     let Pop l  = new SingleExpr(l, pop)
+    let Int l = new SingleExpr(l, InterruptTable.Call)
     
     //Double operand expressions
     let Mov l r = new DoubleExpr(l,r,mov)

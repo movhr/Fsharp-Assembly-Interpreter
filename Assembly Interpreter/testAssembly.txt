@@ -3,13 +3,19 @@
 	b 10
 	
 .code
-	div a 2    
-	sub b a    
-	push a     
-	mov a 10.0 
-	pop b      
-	inc b      
-	div a b    
-	push a     
-	mov a 0    
-	mov b 0    
+	call someMath
+	mov a 0
+	mov b 0
+	push 0
+	int 69
+	
+	_someMath:
+		div a 2    
+		sub b a    
+		push a     
+		mov a 10.0 
+		pop b      
+		inc b      
+		div a b    
+		push a 
+		ret
