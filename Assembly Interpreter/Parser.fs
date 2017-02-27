@@ -8,8 +8,8 @@ module Parser =
     let exprMap str (args:Operand array) : IExpr =
         let pred = fun (s) -> (fst s) = str
         let nakedExprArr = [| ("nop", Nop); ("ret", Ret) |]
-        let singleExprArr = [| ("inc", Inc); ("dec", Dec); ("jmp", Jmp); ("call", Call); ("push", Push); ("pop", Pop); ("int", Int) |]
-        let doubleExprArr = [| ("mov", Mov); ("add", Add); ("sub", Sub); ("mul", Mul); ("div", Div) |]
+        let singleExprArr = [| ("inc", Inc); ("dec", Dec); ("jmp", Jmp); ("call", Call); ("push", Push); ("pop", Pop); ("int", Int); ("je", Je); ("jne", Jne); ("jg", Jg); ("jge", Jge); |]
+        let doubleExprArr = [| ("mov", Mov); ("cmp", Cmp); ("add", Add); ("sub", Sub); ("mul", Mul); ("div", Div) |]
         if args.Length = 0 then
             match Array.tryFindIndex pred nakedExprArr with
             | Some i -> snd nakedExprArr.[i] () :> IExpr
@@ -29,14 +29,14 @@ module Parser =
         if Char.IsDigit str.[0] then 
             if str.Contains(".") then ValType.Number(Real(float(str)))
             else ValType.Number(Natural(int(str)))
-        else Text(str.Trim('"') )
+        else Text(str.Trim('"').Replace("\\n", "\n" ))
 
     let TrimSplitSpace (str:String) = str.Trim(' ').Split([|' '|], StringSplitOptions.RemoveEmptyEntries)
 
     let parseData (strArr:String array) : Variable array = 
         let parse (str:String) : Variable = 
             let nameAndValue = TrimSplitSpace str
-            new Variable(nameAndValue.[0], getValtypeFromString nameAndValue.[1])
+            new Variable(nameAndValue.[0], getValtypeFromString (String.Join(" ", Array.skip 1 nameAndValue)))
         Array.map parse strArr
 
     let parseCode (strArr:String array) (variableNames:(string*Variable) array) (funcs:(string*int) array) : IExpr array = 
@@ -56,9 +56,9 @@ module Parser =
             //Example string: [mov] [x, 5]
             let op = Array.head strSplit
             let args = Array.tail strSplit
-            if op.Contains "call" then 
+            if op.Contains "call" || op.Contains("j") then 
                 let loc = funcs |> Array.find (fun tpl -> (fst tpl) = strSplit.[1]) |> snd |> Operand.FromIntAsNum
-                exprMap "call" [|loc|]
+                exprMap op [|loc|]
             else
 
             //Example string: [mov] | [x] [5]
@@ -77,7 +77,7 @@ module Parser =
                          |> Array.skip 1                        //skip delim as well
                          |> Array.takeWhile (fun c -> c <> ':') //take till next char delim
             Some (new String(newStr), i)
-        strArr |> Array.mapi (fun i s -> parse s (i+codeStartIndex)) |> Array.choose id
+        strArr |> Array.mapi (fun i s -> parse s i) |> Array.choose id
 
     let parse (input:string[]) = 
         let isValidExpressionString (str:String) = String.IsNullOrWhiteSpace >> not <| str

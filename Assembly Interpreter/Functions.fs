@@ -6,8 +6,8 @@ open Types
 module Functions = 
     //Control flow
     let flags = new Flags()
-    let mutable IP:Variable = new Variable ("IP", -1 |> Number.Natural |> ValType.Number)
-    let mutable SP:int8 = -1y
+    let mutable IP:int = 0
+    let mutable SP:int = 0
     let stack:List<ValType> = new List<ValType>(64)
     
     let mov (left:Operand) (right:Operand) =
@@ -19,39 +19,35 @@ module Functions =
     let cmp (left:Operand) (right:Operand) = 
         let result = left.Cmp right
         flags.ZF <- (result = 0)
-        flags.SF <- (result > 0)
+        flags.SF <- (result < 0)
     
     let push (left:Operand) = 
         stack.Add left.Value
-        SP <- SP + 1y
+        SP <- SP + 1
     
     let pop(left:Operand) = 
         left.Value <- stack.[int SP]
         stack.RemoveAt (int SP)
-        SP <- SP - 1y
+        SP <- SP - 1
         
     let jmp(loc:Operand) = 
-        IP.Value <- loc.Value
+        IP <- loc.Value._getInt()
     
     let call(loc) = 
-        push(Operand(OpType.Variable IP) )
+        push (Operand.FromIntAsNum IP)
         jmp(loc)
     
-    let ret() = pop(Operand(OpType.Variable IP) )
+    let ret() = pop (Operand.FromIntAsNum IP)
     
     let nop() = ()
     
     let cj loc (c:bool) = if c then jmp loc
     let je loc  = cj loc flags.ZF
-    let jz loc  = cj loc flags.ZF
-    let jnz loc = cj loc (not flags.ZF)
     let js loc  = cj loc flags.SF
     let jns loc = cj loc (not flags.SF)
     let jne loc = cj loc (not flags.ZF)
     let jg loc  = cj loc (not flags.SF && not flags.ZF)
     let jge loc = cj loc (not flags.SF || flags.ZF)
-    //  jl(e) comes with Overflow flag, which not implemented yet
-    
     
     //Arithmetic operations
     let AddSub<'T>(l:Operand) (r:ValType) (f:Number->Number->ValType) =

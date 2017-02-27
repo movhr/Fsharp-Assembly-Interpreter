@@ -1,6 +1,7 @@
 ﻿namespace AssemblyInterpreter
 open Types
 open Functions
+open System.Reflection
 
 module Expressions = 
     type IExpr = 
@@ -9,31 +10,45 @@ module Expressions =
     type NakedExpr(f:unit->unit) = 
         interface IExpr with
             override this.Evaluate() = f()
+        override NakedExpr.ToString() = 
+            f.GetType().Name
 
-    type SingleExpr(a, f:Operand->unit) =
+    type SingleExpr(a:Operand, f:Operand->unit) =
         interface IExpr with
             override this.Evaluate() = f a
+        override SingleExpr.ToString() = 
+            f.GetType().Name + " [" + (a.Value.ToString()) + "]"
                 
-    type DoubleExpr(a, b, f:Operand->Operand->unit) = 
+    type DoubleExpr(a:Operand, b:Operand, f:Operand->Operand->unit) = 
         interface IExpr with
             override this.Evaluate() = f a b
-
+        override SingleExpr.ToString() = 
+            f.GetType().Name + " [" + (a.Value.ToString()) + ", " + (b.Value.ToString()) + "]"
+        
     type InterruptTable() = 
         static let mutable reservedOp = Operand.FromIntAsNum 0
+
+        static member Read() = //82d = ascii R
+            let input = System.Console.ReadLine()
+            reservedOp <- Operand.FromStrAsTxt input
+            push reservedOp
+
         static member Print() = //80d = ascii P
-            pop(reservedOp)
-            printf "%A" reservedOp.Value
+            pop reservedOp 
+            System.Console.Write(reservedOp.Value.ToString())
 
         static member Exit() =  //69d = ascii E
-            pop(reservedOp)
-            printf "Exit code: %A" reservedOp.Value
+            pop reservedOp 
+            printf "\nExit code: %i\n" (reservedOp.Value._getInt())
             exit (reservedOp.Cmp(Operand.FromIntAsNum 0))
 
         static member Call(num:Operand) = 
-            if num.Cmp(Operand.FromIntAsNum(80)) = 0 then InterruptTable.Print()
-            elif num.Cmp(Operand.FromIntAsNum(69)) = 0 then InterruptTable.Exit()
-            else 
-                invalidArg "num" "Invalid interrupt code"
+            let errIntCode() = invalidArg "num" "Invalid interrupt code"
+            match num.Value._getInt() with
+            | 82 -> InterruptTable.Read()
+            | 80 -> InterruptTable.Print()
+            | 69 -> InterruptTable.Exit()
+            |  _ -> errIntCode()
 
     //Naked expressions
     let Ret() = new NakedExpr(ret)
@@ -46,7 +61,7 @@ module Expressions =
     let Call l = new SingleExpr(l, call)
     let Push l = new SingleExpr(l, push)
     let Pop l  = new SingleExpr(l, pop)
-    let Int l = new SingleExpr(l, InterruptTable.Call)
+    let Int l  = new SingleExpr(l, InterruptTable.Call)
     
     //Double operand expressions
     let Mov l r = new DoubleExpr(l,r,mov)
@@ -54,3 +69,11 @@ module Expressions =
     let Sub l r = new DoubleExpr(l,r,sub)
     let Mul l r = new DoubleExpr(l,r,mul)
     let Div l r = new DoubleExpr(l,r,div)
+
+    //Control flow
+    let Je l = new SingleExpr(l,je)
+    let Jg l = new SingleExpr(l,jg)
+    let Jne l = new SingleExpr(l,jne)
+    let Jge l = new SingleExpr(l,jge)
+
+    let Cmp l r = new DoubleExpr(l, r, cmp)

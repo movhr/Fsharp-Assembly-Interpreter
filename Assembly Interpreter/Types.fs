@@ -28,10 +28,10 @@ module Types =
                 |Natural(o),Natural(o') -> o.CompareTo o'
                 |Real(o),Real(o') -> o.CompareTo o'
                 |_ -> failtype()
-        override this.ToString() = 
-            match this with
-            |Natural(t') -> t'.ToString()
-            |Real(t') -> t'.ToString()
+        override Number.ToString() = 
+            match Number with
+            |Natural(t') -> string(t')
+            |Real(t') -> string(t')
         static member (*) (a:Number,b:Number) : Number = 
             match a,b with
             | Natural a', Natural b' -> Natural (a' * b')
@@ -63,13 +63,16 @@ module Types =
         interface IType<ValType> with
             override this.Cmp(obj:ValType) = 
                 match this,obj with
-                | Text(o), Text(o') -> o.CompareTo this
+                | Text(o), Text(o') -> o.CompareTo o'
                 | Number(o), Number(o') -> (o :> IType<Number>).Cmp o'
-                | _ -> failtype()
-        override this.ToString() = 
-            match this with
-            |Text(t') -> t'
+                | Text(t), Number(n) -> ((if t.Contains(".") then Number.Real(float(t)) else Number.Natural(int(t))) :> IType<Number>).Cmp n
+                | Number(n), Text(t) -> (n :> IType<Number>).Cmp (if t.Contains(".") then Number.Real(float(t)) else Number.Natural(int(t)))
+        override ValType.ToString() = 
+            match ValType with
+            |Text(t') -> string(t')
             |Number(t') -> t'.ToString()
+        member this._getInt() = 
+            match this with | Text(_) -> failwith "NaN" | Number(n) -> match n with |Real(_) -> failwith "NaN" |Natural(n') -> n' 
         static member (+) (a:ValType, b:ValType) : ValType = 
             match a,b with
             | Number(a'), Number(b') -> ValType.Number( a' + b' )
@@ -125,6 +128,7 @@ module Types =
                 | Variable(v') -> v'.Value <- newVal
                 | Value(v') -> v'.Data <- newVal
         member this.Op with get() = value
-        member this.Cmp(obj:Operand) = (this.Value :> IType<ValType>).Cmp(obj.Value)
+        member this.Cmp(obj:Operand) = (this.Value :> IType<ValType>).Cmp obj.Value
         static member FromIntAsNum(a':int) = new Operand(OpType.Value(new Constant(ValType.Number(Number.Natural a'))))
         static member FromFltAsNum(a':float) = new Operand(OpType.Value(new Constant(ValType.Number(Number.Real a'))))
+        static member FromStrAsTxt(a':string) = new Operand(OpType.Value(new Constant(ValType.Text(a'))))
